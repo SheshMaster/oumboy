@@ -54,31 +54,32 @@ class LoginDialog(QDialog):
         self.exchange_combo.addItems(["OANDA", "Alpaca"])
         self.exchange_combo.setStyleSheet(INPUT_STYLE)
         
-        # Create all input fields first
+        # Load saved credentials if available
+        saved_credentials = load_credentials()
+        if saved_credentials:
+            self.exchange_combo.setCurrentText(saved_credentials['exchange'].capitalize())
+        
         self.account_id_label = QLabel("Account ID:")
         self.account_id_label.setStyleSheet(LABEL_STYLE)
         self.account_id = QLineEdit()
         self.account_id.setStyleSheet(INPUT_STYLE)
+        if saved_credentials and 'account_id' in saved_credentials:
+            self.account_id.setText(saved_credentials['account_id'])
         
         self.api_label = QLabel("API Key:")
         self.api_label.setStyleSheet(LABEL_STYLE)
         self.api_key = QLineEdit()
         self.api_key.setStyleSheet(INPUT_STYLE)
+        if saved_credentials:
+            self.api_key.setText(saved_credentials['api_key'])
         
         self.secret_label = QLabel("API Secret:")
         self.secret_label.setStyleSheet(LABEL_STYLE)
         self.api_secret = QLineEdit()
         self.api_secret.setEchoMode(QLineEdit.Password)
         self.api_secret.setStyleSheet(INPUT_STYLE)
-        
-        # Now load and set saved credentials if available
-        saved_credentials = load_credentials()
         if saved_credentials:
-            self.exchange_combo.setCurrentText(saved_credentials.get('exchange', 'OANDA').capitalize())
-            self.account_id.setText(saved_credentials.get('account_id', ''))
-            self.api_key.setText(saved_credentials.get('api_key', ''))
-            if 'api_secret' in saved_credentials:
-                self.api_secret.setText(saved_credentials['api_secret'])
+            self.api_secret.setText(saved_credentials['api_secret'])
         
         # Add to layout
         layout.addWidget(login_type_label)
@@ -137,7 +138,7 @@ class LoginDialog(QDialog):
             if self.verify_admin_login():
                 super().accept()
             else:
-                QMessageBox.warning(self, "Login Failed", "Invalid admin credentials!")
+                self.show_error_message("Login Failed", "Invalid admin credentials!")
         else:
             try:
                 credentials = self.get_credentials()
@@ -148,7 +149,7 @@ class LoginDialog(QDialog):
                     r = AccountSummary(accountID=credentials['account_id'])
                     api.request(r)
                     
-                    QMessageBox.information(self, "Success", "Successfully connected to OANDA!")
+                    self.show_success_message("Successfully connected to OANDA!")
                     save_credentials(credentials)  # Save credentials
                     super().accept()
                     
@@ -161,12 +162,12 @@ class LoginDialog(QDialog):
                     )
                     api.get_account()
                     
-                    QMessageBox.information(self, "Success", "Successfully connected to Alpaca!")
+                    self.show_success_message("Successfully connected to Alpaca!")
                     save_credentials(credentials)  # Save credentials
                     super().accept()
                     
             except Exception as e:
-                QMessageBox.critical(self, "Connection Error", 
+                self.show_error_message("Connection Error", 
                     f"Failed to connect: {str(e)}\n\nPlease verify your credentials.")
                     
     def verify_admin_login(self):
@@ -191,6 +192,66 @@ class LoginDialog(QDialog):
                 'api_key': self.api_key.text(),
                 'api_secret': self.api_secret.text()
             }
+
+    def show_success_message(self, message):
+        """Show styled success message"""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Information)
+        msg.setText(message)
+        msg.setWindowTitle("Success")
+        
+        # Style the message box
+        msg.setStyleSheet(f"""
+            QMessageBox {{
+                background-color: {COLORS['background']};
+            }}
+            QMessageBox QLabel {{
+                color: {COLORS['text']};
+                font-size: 12px;
+            }}
+            QPushButton {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['text']};
+                padding: 6px 12px;
+                border-radius: 4px;
+                min-width: 80px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['secondary']};
+            }}
+        """)
+        
+        msg.exec_()
+
+    def show_error_message(self, title, message):
+        """Show styled error message"""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Critical)
+        msg.setText(message)
+        msg.setWindowTitle(title)
+        
+        # Style the message box
+        msg.setStyleSheet(f"""
+            QMessageBox {{
+                background-color: {COLORS['background']};
+            }}
+            QMessageBox QLabel {{
+                color: {COLORS['danger']};
+                font-size: 12px;
+            }}
+            QPushButton {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['text']};
+                padding: 6px 12px;
+                border-radius: 4px;
+                min-width: 80px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['secondary']};
+            }}
+        """)
+        
+        msg.exec_()
 
 def save_credentials(credentials):
     """Save credentials to a JSON file."""

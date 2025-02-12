@@ -219,12 +219,25 @@ class TradingBotApp(QMainWindow):
             self.bot = bot2.TradingBot(self.credentials)
             # Update initial connection status
             if self.check_connection_status():
+                self.main_layout.update_status(
+                    "Connected", 
+                    COLORS['success']
+                )
                 QMessageBox.information(
                     self,
                     "Connection Success",
                     f"Successfully connected to {self.credentials['exchange'].upper()} account!"
                 )
+            else:
+                self.main_layout.update_status(
+                    "Disconnected", 
+                    COLORS['danger']
+                )
         except Exception as e:
+            self.main_layout.update_status(
+                "Connection Failed", 
+                COLORS['danger']
+            )
             QMessageBox.warning(
                 self,
                 "Warning", 
@@ -235,11 +248,11 @@ class TradingBotApp(QMainWindow):
         """Check if still connected to exchange"""
         try:
             if not hasattr(self, 'bot') or not self.bot:
-                self.update_connection_status(False)
+                self.main_layout.update_status("Disconnected", COLORS['danger'])
                 return False
                 
             if not hasattr(self, 'main_layout'):
-                return False  # Skip update if main_layout isn't ready
+                return False
                 
             if self.credentials['exchange'] == 'oanda':
                 r = AccountSummary(accountID=self.credentials['account_id'])
@@ -248,11 +261,21 @@ class TradingBotApp(QMainWindow):
                 account_name = response.get('account', {}).get('alias', 'Account')
                 balance = response.get('account', {}).get('balance', '0')
                 self.connection_status = True
-                self.update_connection_status(True, f"{account_name} - Balance: ${balance}")
+                self.main_layout.update_status("Connected", COLORS['success'])
+                self.main_layout.update_account_info(
+                    float(balance),
+                    self.credentials['exchange'].upper(),
+                    "Connected"
+                )
             else:
                 account = self.bot.exchange.get_account()
                 self.connection_status = True
-                self.update_connection_status(True, f"Balance: ${account.cash}")
+                self.main_layout.update_status("Connected", COLORS['success'])
+                self.main_layout.update_account_info(
+                    float(account.cash),
+                    self.credentials['exchange'].upper(),
+                    "Connected"
+                )
                 
             return True
                 
@@ -260,7 +283,7 @@ class TradingBotApp(QMainWindow):
             print(f"Connection lost: {str(e)}")
             self.connection_status = False
             if hasattr(self, 'main_layout'):
-                self.update_connection_status(False)
+                self.main_layout.update_status("Disconnected", COLORS['danger'])
             return False
 
     def update_connection_status(self, connected, details=""):

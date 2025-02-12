@@ -25,11 +25,14 @@ class MainLayout(QVBoxLayout):
         # Market data table
         self.add_market_data_table()
         
-        # Add control buttons
+        # Control buttons
         self.add_control_buttons()
         
         # Start bot button
         self.add_start_section()
+        
+        # Add footer with status
+        self.add_footer()
         
     def add_header(self):
         header = QHBoxLayout()
@@ -78,36 +81,30 @@ class MainLayout(QVBoxLayout):
         self.addWidget(market_group)
         
     def add_control_buttons(self):
-        """Add control buttons including stop button"""
-        button_layout = QHBoxLayout()
+        """Add control buttons section"""
+        buttons_layout = QHBoxLayout()
         
-        # Create stop button
+        # Create control buttons
+        self.start_button = QPushButton("Start Trading")
         self.stop_button = QPushButton("Stop Trading")
-        self.stop_button.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                padding: 15px 32px;
-                font-size: 16px;
-                border-radius: 10px;
-                min-width: 200px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
-        
-        # Create restart button
         self.restart_button = QPushButton("Restart")
+        
+        # Style buttons
+        self.start_button.setStyleSheet(BUTTON_STYLE)
+        self.stop_button.setStyleSheet(BUTTON_STYLE)
         self.restart_button.setStyleSheet(BUTTON_STYLE)
         
-        button_layout.addWidget(self.stop_button)
-        button_layout.addWidget(self.restart_button)
-        button_layout.addStretch()
+        # Initially disable stop button
+        self.stop_button.setEnabled(False)
         
-        self.addLayout(button_layout)
+        # Add buttons to layout
+        buttons_layout.addWidget(self.start_button)
+        buttons_layout.addWidget(self.stop_button)
+        buttons_layout.addWidget(self.restart_button)
         
+        # Add buttons layout to main layout
+        self.addLayout(buttons_layout)
+
     def add_start_section(self):
         start_layout = QHBoxLayout()
         
@@ -134,7 +131,10 @@ class MainLayout(QVBoxLayout):
         """Update account information display"""
         self.balance_label.setText(f"Balance: ${balance:,.2f}")
         self.account_type.setText(f"Account Type: {account_type}")
-        self.account_status.setText(f"Status: {status}")
+        
+        # Set status color based on connection state
+        status_color = COLORS['success'] if status.lower() == 'connected' else COLORS['danger']
+        self.update_status(status, status_color)
         
     def update_market_data(self, market_data):
         """Update market data table"""
@@ -251,8 +251,15 @@ class MainLayout(QVBoxLayout):
         # Controls
         self.controls = QVBoxLayout()
         self.start_button = QPushButton("Start Trading")
+        self.stop_button = QPushButton("Stop Trading")
+        self.restart_button = QPushButton("Restart App")
         self.start_button.setStyleSheet(BUTTON_STYLE)
+        self.stop_button.setStyleSheet(BUTTON_STYLE)
+        self.restart_button.setStyleSheet(BUTTON_STYLE)
         self.controls.addWidget(self.start_button)
+        self.controls.addWidget(self.stop_button)
+        self.controls.addWidget(self.restart_button)
+        layout.addLayout(self.controls)
         
         layout.addStretch()
         return layout
@@ -379,12 +386,15 @@ class MainLayout(QVBoxLayout):
         self.addLayout(footer)
 
     def get_start_button(self):
+        """Return reference to start button"""
         return self.start_button
 
     def get_stop_button(self):
+        """Return reference to stop button"""
         return self.stop_button
 
     def get_restart_button(self):
+        """Return reference to restart button"""
         return self.restart_button
 
     def get_positions_table(self):
@@ -477,15 +487,27 @@ class MainLayout(QVBoxLayout):
             print(f"Error updating account info: {str(e)}")
 
     def update_status(self, status_text, status_color):
-        """Update the connection status display"""
-        # Find the status label in the footer
+        """Update connection status display"""
+        # Find status label in header
+        self.account_status.setText(f"Status: {status_text}")
+        self.account_status.setStyleSheet(f"""
+            QLabel {{
+                color: {status_color};
+                padding: 5px;
+                border: 1px solid {status_color};
+                border-radius: 4px;
+                background-color: {COLORS['surface']};
+            }}
+        """)
+        
+        # Also update footer status if it exists
         status_label = self.findChild(QLabel, "connection_status")
         if status_label:
-            status_label.setText(status_text)
+            status_label.setText(f"Status: {status_text}")
             status_label.setStyleSheet(f"""
                 color: {status_color};
-                padding: 5px 10px;
+                padding: 5px;
                 border: 1px solid {status_color};
-                border-radius: 5px;
-                font-weight: bold;
+                border-radius: 4px;
+                background-color: {COLORS['surface']};
             """) 

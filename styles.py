@@ -11,7 +11,7 @@ COLORS = {
     'background': '#1C1C1C',   # Dark background
     'surface': '#242424',      # Slightly lighter background
     'text': '#FFFFFF',         # White text
-    'text_secondary': '#B0B0B0'  # Gray text
+    'text_secondary': '#FFFFFF'  # Gray text
 }
 
 # Font configurations

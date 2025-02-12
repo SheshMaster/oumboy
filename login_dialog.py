@@ -54,32 +54,31 @@ class LoginDialog(QDialog):
         self.exchange_combo.addItems(["OANDA", "Alpaca"])
         self.exchange_combo.setStyleSheet(INPUT_STYLE)
         
-        # Load saved credentials if available
-        saved_credentials = load_credentials()
-        if saved_credentials:
-            self.exchange_combo.setCurrentText(saved_credentials['exchange'].capitalize())
-        
+        # Create all input fields first
         self.account_id_label = QLabel("Account ID:")
         self.account_id_label.setStyleSheet(LABEL_STYLE)
         self.account_id = QLineEdit()
         self.account_id.setStyleSheet(INPUT_STYLE)
-        if saved_credentials and 'account_id' in saved_credentials:
-            self.account_id.setText(saved_credentials['account_id'])
         
         self.api_label = QLabel("API Key:")
         self.api_label.setStyleSheet(LABEL_STYLE)
         self.api_key = QLineEdit()
         self.api_key.setStyleSheet(INPUT_STYLE)
-        if saved_credentials:
-            self.api_key.setText(saved_credentials['api_key'])
         
         self.secret_label = QLabel("API Secret:")
         self.secret_label.setStyleSheet(LABEL_STYLE)
         self.api_secret = QLineEdit()
         self.api_secret.setEchoMode(QLineEdit.Password)
         self.api_secret.setStyleSheet(INPUT_STYLE)
+        
+        # Now load and set saved credentials if available
+        saved_credentials = load_credentials()
         if saved_credentials:
-            self.api_secret.setText(saved_credentials['api_secret'])
+            self.exchange_combo.setCurrentText(saved_credentials.get('exchange', 'OANDA').capitalize())
+            self.account_id.setText(saved_credentials.get('account_id', ''))
+            self.api_key.setText(saved_credentials.get('api_key', ''))
+            if 'api_secret' in saved_credentials:
+                self.api_secret.setText(saved_credentials['api_secret'])
         
         # Add to layout
         layout.addWidget(login_type_label)

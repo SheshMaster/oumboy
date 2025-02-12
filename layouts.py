@@ -25,6 +25,9 @@ class MainLayout(QVBoxLayout):
         # Market data table
         self.add_market_data_table()
         
+        # Add control buttons
+        self.add_control_buttons()
+        
         # Start bot button
         self.add_start_section()
         
@@ -73,6 +76,37 @@ class MainLayout(QVBoxLayout):
         market_layout.addWidget(self.market_table)
         market_group.setLayout(market_layout)
         self.addWidget(market_group)
+        
+    def add_control_buttons(self):
+        """Add control buttons including stop button"""
+        button_layout = QHBoxLayout()
+        
+        # Create stop button
+        self.stop_button = QPushButton("Stop Trading")
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 15px 32px;
+                font-size: 16px;
+                border-radius: 10px;
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        
+        # Create restart button
+        self.restart_button = QPushButton("Restart")
+        self.restart_button.setStyleSheet(BUTTON_STYLE)
+        
+        button_layout.addWidget(self.stop_button)
+        button_layout.addWidget(self.restart_button)
+        button_layout.addStretch()
+        
+        self.addLayout(button_layout)
         
     def add_start_section(self):
         start_layout = QHBoxLayout()
@@ -217,15 +251,8 @@ class MainLayout(QVBoxLayout):
         # Controls
         self.controls = QVBoxLayout()
         self.start_button = QPushButton("Start Trading")
-        self.stop_button = QPushButton("Stop Trading")
-        self.restart_button = QPushButton("Restart App")
         self.start_button.setStyleSheet(BUTTON_STYLE)
-        self.stop_button.setStyleSheet(BUTTON_STYLE)
-        self.restart_button.setStyleSheet(BUTTON_STYLE)
         self.controls.addWidget(self.start_button)
-        self.controls.addWidget(self.stop_button)
-        self.controls.addWidget(self.restart_button)
-        layout.addLayout(self.controls)
         
         layout.addStretch()
         return layout

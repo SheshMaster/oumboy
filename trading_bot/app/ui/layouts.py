@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout, 
                            QWidget, QLabel, QPushButton, QLineEdit,
-                           QComboBox, QTableWidget, QFrame, QGroupBox, QCheckBox, QTableWidgetItem)
-from PyQt5.QtCore import Qt, QDateTime
+                           QComboBox, QTableWidget, QFrame, QGroupBox, QCheckBox, QTableWidgetItem, QTabWidget)
+from PyQt5.QtCore import Qt, QDateTime, QSize, QRect
 from PyQt5.QtGui import QBrush, QColor, QPainter
 from styles import (
     COLORS, FONTS, BUTTON_STYLE, INPUT_STYLE, 
@@ -11,154 +11,120 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import pandas as pd
+from PyQt5.QtWidgets import QDesktopWidget
 plt.style.use('dark_background')  # Style sombre pour correspondre au thème
+
+class DeviceDetector:
+    @staticmethod
+    def is_mobile():
+        """Detect if running on mobile device"""
+        screen = QDesktopWidget().screenGeometry()
+        width = screen.width()
+        height = screen.height()
+        
+        # Check screen dimensions and aspect ratio
+        is_mobile = (width < 800 or height < 600) or (height > width)
+        return is_mobile
+        
+    @staticmethod
+    def get_screen_size():
+        """Get current screen dimensions"""
+        screen = QDesktopWidget().screenGeometry()
+        return QSize(screen.width(), screen.height())
 
 class MainLayout(QVBoxLayout):
     def __init__(self):
         super().__init__()
-        self.setSpacing(20)
-        self.setContentsMargins(20, 20, 20, 20)
+        self.is_mobile = DeviceDetector.is_mobile()
+        self.screen_size = DeviceDetector.get_screen_size()
+        self.setup_responsive_layout()
         
-        # Add header with account info
-        self.add_header()
+    def setup_responsive_layout(self):
+        """Setup layout based on device type"""
+        self.setSpacing(20 if not self.is_mobile else 10)
+        self.setContentsMargins(
+            *(20 if not self.is_mobile else 10 for _ in range(4))
+        )
         
-        # Market data table
-        self.add_market_data_table()
+        # Create panels
+        left_panel = self.create_left_panel()
+        center_panel = self.create_chart_area()
+        right_panel = self.create_right_panel()
         
-        # Control buttons
-        self.add_control_buttons()
-        
-        # Start bot button
-        self.add_start_section()
-        
-        # Add footer with status
+        if self.is_mobile:
+            # Mobile layout: Stack panels vertically
+            self.add_header(mobile=True)
+            self.addLayout(center_panel, 2)  # Chart gets more space
+            
+            # Create tab widget for panels
+            tabs = QTabWidget()
+            tabs.setStyleSheet(self.get_mobile_tab_style())
+            
+            # Add panels as tabs
+            left_tab = QWidget()
+            left_tab.setLayout(left_panel)
+            tabs.addTab(left_tab, "Strategy")
+            
+            right_tab = QWidget()
+            right_tab.setLayout(right_panel)
+            tabs.addTab(right_tab, "Account")
+            
+            self.addWidget(tabs, 1)
+        else:
+            # Desktop layout: Horizontal arrangement
+            main_content = QHBoxLayout()
+            main_content.addLayout(left_panel, 1)
+            main_content.addLayout(center_panel, 2)
+            main_content.addLayout(right_panel, 1)
+            
+            self.add_header(mobile=False)
+            self.addLayout(main_content)
+            
         self.add_footer()
         
-    def add_header(self):
-        header = QHBoxLayout()
+    def get_mobile_tab_style(self):
+        """Get style for mobile tabs"""
+        return f"""
+            QTabWidget::pane {{
+                border: 1px solid {COLORS['text_secondary']};
+                background: {COLORS['surface']};
+                border-radius: 8px;
+            }}
+            QTabBar::tab {{
+                background: {COLORS['background']};
+                color: {COLORS['text']};
+                padding: 12px;
+                margin: 2px;
+                border-radius: 4px;
+            }}
+            QTabBar::tab:selected {{
+                background: {COLORS['primary']};
+            }}
+        """
         
-        # Account info section
-        account_info = QGroupBox("Account Information")
-        account_info.setStyleSheet(GROUP_BOX_STYLE)
-        account_layout = QGridLayout()
-        
-        # Account balance
-        self.balance_label = QLabel("Balance: $0.00")
-        self.balance_label.setStyleSheet(LABEL_STYLE)
-        self.balance_label.setFont(FONTS['header'])
-        
-        # Account type
-        self.account_type = QLabel("Account Type: --")
-        self.account_type.setStyleSheet(LABEL_STYLE)
-        
-        # Account status
-        self.account_status = QLabel("Status: Not Connected")
-        self.account_status.setStyleSheet(LABEL_STYLE)
-        
-        account_layout.addWidget(self.balance_label, 0, 0)
-        account_layout.addWidget(self.account_type, 1, 0)
-        account_layout.addWidget(self.account_status, 2, 0)
-        account_info.setLayout(account_layout)
-        
-        header.addWidget(account_info)
-        self.addLayout(header)
-        
-    def add_market_data_table(self):
-        market_group = QGroupBox("Market Overview")
-        market_group.setStyleSheet(GROUP_BOX_STYLE)
-        market_layout = QVBoxLayout()
-        
-        # Create market data table
-        self.market_table = QTableWidget(0, 4)
-        self.market_table.setHorizontalHeaderLabels([
-            "Symbol", "Price", "Change", "Volume"
-        ])
-        self.market_table.setStyleSheet(TABLE_STYLE)
-        self.market_table.horizontalHeader().setStretchLastSection(True)
-        
-        market_layout.addWidget(self.market_table)
-        market_group.setLayout(market_layout)
-        self.addWidget(market_group)
-        
-    def add_control_buttons(self):
-        """Add control buttons section"""
-        buttons_layout = QHBoxLayout()
-        
-        # Create control buttons
-        self.start_button = QPushButton("Start Trading")
-        self.stop_button = QPushButton("Stop Trading")
-        self.restart_button = QPushButton("Restart")
-        
-        # Style buttons
-        self.start_button.setStyleSheet(BUTTON_STYLE)
-        self.stop_button.setStyleSheet(BUTTON_STYLE)
-        self.restart_button.setStyleSheet(BUTTON_STYLE)
-        
-        # Initially disable stop button
-        self.stop_button.setEnabled(False)
-        
-        # Add buttons to layout
-        buttons_layout.addWidget(self.start_button)
-        buttons_layout.addWidget(self.stop_button)
-        buttons_layout.addWidget(self.restart_button)
-        
-        # Add buttons layout to main layout
-        self.addLayout(buttons_layout)
-
-    def add_start_section(self):
-        start_layout = QHBoxLayout()
-        
-        self.start_bot_button = QPushButton("Start Trading Bot")
-        self.start_bot_button.setStyleSheet("""
-            QPushButton {
-                background-color: #2ecc71;
-                color: white;
-                border: none;
-                padding: 15px 32px;
-                font-size: 16px;
-                border-radius: 10px;
-                min-width: 200px;
-            }
-            QPushButton:hover {
-                background-color: #27ae60;
-            }
-        """)
-        
-        start_layout.addWidget(self.start_bot_button, alignment=Qt.AlignCenter)
-        self.addLayout(start_layout)
-        
-    def update_account_info(self, balance, account_type, status):
-        """Update account information display"""
-        self.balance_label.setText(f"Balance: ${balance:,.2f}")
-        self.account_type.setText(f"Account Type: {account_type}")
-        
-        # Set status color based on connection state
-        status_color = COLORS['success'] if status.lower() == 'connected' else COLORS['danger']
-        self.update_status(status, status_color)
-        
-    def update_market_data(self, market_data):
-        """Update market data table"""
-        self.market_table.setRowCount(len(market_data))
-        for row, data in enumerate(market_data):
-            self.market_table.setItem(row, 0, QTableWidgetItem(data['symbol']))
-            self.market_table.setItem(row, 1, QTableWidgetItem(f"${data['price']:.2f}"))
-            
-            # Color code the change column
-            change_item = QTableWidgetItem(f"{data['change']:.2f}%")
-            change_item.setForeground(
-                QBrush(QColor("#2ecc71" if data['change'] >= 0 else "#e74c3c"))
-            )
-            self.market_table.setItem(row, 2, change_item)
-            
-            self.market_table.setItem(row, 3, QTableWidgetItem(f"{data['volume']:,}"))
-
     def create_left_panel(self):
         layout = QVBoxLayout()
         
-        # Strategy selection
+        # Adjust sizes for mobile
+        if self.is_mobile:
+            button_height = 40
+            input_height = 35
+            font_size = 14
+        else:
+            button_height = 30
+            input_height = 25
+            font_size = 12
+            
+        # Strategy selection with adjusted sizes
         strategy_group = QGroupBox("Strategy")
-        strategy_group.setStyleSheet(GROUP_BOX_STYLE)
-        strategy_layout = QVBoxLayout()
+        strategy_group.setStyleSheet(
+            GROUP_BOX_STYLE + 
+            f"QGroupBox {{ padding: {10 if self.is_mobile else 5}px; }}"
+        )
+        
+        # Adjust other widgets similarly...
+        self.pair_combo.setFixedHeight(input_height)
+        self.strategy_combo.setFixedHeight(input_height)
         
         # Add currency pair selection
         pair_label = QLabel("Currency Pair:")
@@ -169,10 +135,11 @@ class MainLayout(QVBoxLayout):
             'AUD_USD', 'USD_CAD', 'NZD_USD'
         ])
         self.pair_combo.setStyleSheet(INPUT_STYLE)
+        strategy_layout = QVBoxLayout()
         strategy_layout.addWidget(pair_label)
         strategy_layout.addWidget(self.pair_combo)
         
-        # Strategy combo
+        # panel des stratégie et link au photos
         strategy_label = QLabel("Strategy:")
         strategy_label.setStyleSheet(LABEL_STYLE)
         self.strategy_combo = QComboBox()
@@ -267,6 +234,14 @@ class MainLayout(QVBoxLayout):
     def create_chart_area(self):
         layout = QVBoxLayout()
         
+        # Adjust chart size for mobile
+        if self.is_mobile:
+            self.figure.set_size_inches(8, 6)  # Smaller chart on mobile
+            self.canvas.setMinimumHeight(300)
+        else:
+            self.figure.set_size_inches(12, 8)
+            self.canvas.setMinimumHeight(400)
+        
         # Chart controls
         controls = QHBoxLayout()
         self.timeframe_combo = QComboBox()
@@ -284,11 +259,10 @@ class MainLayout(QVBoxLayout):
         # Create matplotlib figure
         self.figure = Figure(facecolor=COLORS['surface'])
         self.canvas = FigureCanvas(self.figure)
-        self.canvas.setMinimumHeight(400)
-        self.ax = self.figure.add_subplot(111)
-        self.ax.set_facecolor(COLORS['surface'])
         
         # Style the plot
+        self.ax = self.figure.add_subplot(111)
+        self.ax.set_facecolor(COLORS['surface'])
         self.ax.grid(True, alpha=0.2)
         self.ax.tick_params(colors=COLORS['text'])
         
@@ -458,34 +432,6 @@ class MainLayout(QVBoxLayout):
             import traceback
             traceback.print_exc()
 
-    def update_account_info(self, balance, equity, margin, free_margin, open_pl, daily_pl, positions):
-        """Update account information display"""
-        try:
-            # Update portfolio metrics
-            metrics = {
-                "Balance": f"${balance:,.2f}",
-                "Equity": f"${equity:,.2f}",
-                "Margin": f"{margin:.1f}%",
-                "Free Margin": f"${free_margin:,.2f}",
-                "Open P/L": f"{'+' if open_pl >= 0 else ''}{open_pl:,.2f}",
-                "Daily P/L": f"{'+' if daily_pl >= 0 else ''}{daily_pl:,.1f}%",
-                "Open Positions": str(positions)
-            }
-            
-            # Find and update labels in the portfolio group
-            portfolio_group = self.findChild(QGroupBox, "Forex Account")
-            if portfolio_group:
-                layout = portfolio_group.layout()
-                for i, (label, value) in enumerate(metrics.items()):
-                    value_label = layout.itemAtPosition(i, 1).widget()
-                    if value_label:
-                        value_label.setText(value)
-                        if "P/L" in label:
-                            color = COLORS['success'] if float(value.replace('+', '')) >= 0 else COLORS['error']
-                            value_label.setStyleSheet(f"color: {color}")
-        except Exception as e:
-            print(f"Error updating account info: {str(e)}")
-
     def update_status(self, status_text, status_color):
         """Update connection status display"""
         # Find status label in header
@@ -510,4 +456,207 @@ class MainLayout(QVBoxLayout):
                 border: 1px solid {status_color};
                 border-radius: 4px;
                 background-color: {COLORS['surface']};
-            """) 
+            """)
+
+    def add_header(self, mobile=False):
+        header = QHBoxLayout()
+        
+        # Adjust header for mobile
+        if mobile:
+            self.balance_label.setFont(FONTS['header_mobile'])
+            self.account_type.setFont(FONTS['body_mobile'])
+            self.account_status.setFont(FONTS['body_mobile'])
+        else:
+            self.balance_label.setFont(FONTS['header'])
+            self.account_type.setFont(FONTS['body'])
+            self.account_status.setFont(FONTS['body'])
+        
+        # Account info section
+        account_info = QGroupBox("Account Information")
+        account_info.setStyleSheet(GROUP_BOX_STYLE)
+        account_layout = QGridLayout()
+        
+        # Account balance
+        self.balance_label = QLabel("Balance: $0.00")
+        self.balance_label.setStyleSheet(LABEL_STYLE)
+        
+        # Account type
+        self.account_type = QLabel("Account Type: --")
+        self.account_type.setStyleSheet(LABEL_STYLE)
+        
+        # Account status
+        self.account_status = QLabel("Status: Not Connected")
+        self.account_status.setStyleSheet(LABEL_STYLE)
+        
+        account_layout.addWidget(self.balance_label, 0, 0)
+        account_layout.addWidget(self.account_type, 1, 0)
+        account_layout.addWidget(self.account_status, 2, 0)
+        account_info.setLayout(account_layout)
+        
+        header.addWidget(account_info)
+        self.addLayout(header)
+        
+    def add_market_data_table(self):
+        market_group = QGroupBox("Market Overview")
+        market_group.setStyleSheet(GROUP_BOX_STYLE)
+        market_layout = QVBoxLayout()
+        
+        # Create market data table
+        self.market_table = QTableWidget(0, 4)
+        self.market_table.setHorizontalHeaderLabels([
+            "Symbol", "Price", "Change", "Volume"
+        ])
+        self.market_table.setStyleSheet(TABLE_STYLE)
+        self.market_table.horizontalHeader().setStretchLastSection(True)
+        
+        market_layout.addWidget(self.market_table)
+        market_group.setLayout(market_layout)
+        self.addWidget(market_group)
+        
+    def add_control_buttons(self):
+        """Add control buttons section"""
+        buttons_layout = QHBoxLayout()
+        
+        # Create control buttons
+        self.start_button = QPushButton("Start Trading")
+        self.stop_button = QPushButton("Stop Trading")
+        self.restart_button = QPushButton("Restart")
+        
+        # Style buttons
+        self.start_button.setStyleSheet(BUTTON_STYLE)
+        self.stop_button.setStyleSheet(BUTTON_STYLE)
+        self.restart_button.setStyleSheet(BUTTON_STYLE)
+        
+        # Initially disable stop button
+        self.stop_button.setEnabled(False)
+        
+        # Add buttons to layout
+        buttons_layout.addWidget(self.start_button)
+        buttons_layout.addWidget(self.stop_button)
+        buttons_layout.addWidget(self.restart_button)
+        
+        # Add buttons layout to main layout
+        self.addLayout(buttons_layout)
+
+    def add_start_section(self):
+        start_layout = QHBoxLayout()
+        
+        self.start_bot_button = QPushButton("Start Trading Bot")
+        self.start_bot_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 15px 32px;
+                font-size: 16px;
+                border-radius: 10px;
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
+            }
+        """)
+        
+        start_layout.addWidget(self.start_bot_button, alignment=Qt.AlignCenter)
+        self.addLayout(start_layout)
+        
+    def update_account_info(self, balance, account_type, status, free_margin=0, open_pl=0, daily_pl=0, positions=0):
+        """Update account information display"""
+        self.balance_label.setText(f"Balance: ${balance:,.2f}")
+        self.account_type.setText(f"Account Type: {account_type}")
+        
+        # Set status color based on connection state
+        status_color = COLORS['success'] if status.lower() == 'connected' else COLORS['danger']
+        self.update_status(status, status_color)
+        
+        # Update additional account metrics if they exist
+        try:
+            # Find and update portfolio metrics
+            portfolio_group = self.findChild(QGroupBox, "Forex Account")
+            if portfolio_group:
+                layout = portfolio_group.layout()
+                metrics = {
+                    "Free Margin": f"${free_margin:,.2f}",
+                    "Open P/L": f"{'+' if open_pl >= 0 else ''}{open_pl:,.2f}",
+                    "Daily P/L": f"{'+' if daily_pl >= 0 else ''}{daily_pl:,.1f}%",
+                    "Open Positions": str(positions)
+                }
+                
+                for i, (label, value) in enumerate(metrics.items()):
+                    value_label = layout.itemAtPosition(i, 1).widget()
+                    if value_label:
+                        value_label.setText(value)
+                        if "P/L" in label:
+                            color = COLORS['success'] if float(value.replace('+', '').replace('%', '')) >= 0 else COLORS['danger']
+                            value_label.setStyleSheet(f"color: {color}")
+        except Exception as e:
+            print(f"Error updating additional account info: {str(e)}")
+
+    def update_market_data(self, market_data):
+        """Update market data table"""
+        self.market_table.setRowCount(len(market_data))
+        for row, data in enumerate(market_data):
+            self.market_table.setItem(row, 0, QTableWidgetItem(data['symbol']))
+            self.market_table.setItem(row, 1, QTableWidgetItem(f"${data['price']:.2f}"))
+            
+            # Color code the change column
+            change_item = QTableWidgetItem(f"{data['change']:.2f}%")
+            change_item.setForeground(
+                QBrush(QColor("#2ecc71" if data['change'] >= 0 else "#e74c3c"))
+            )
+            self.market_table.setItem(row, 2, change_item)
+            
+            self.market_table.setItem(row, 3, QTableWidgetItem(f"{data['volume']:,}"))
+
+    def update_chart(self, df):
+        """Update chart with new data"""
+        try:
+            print("Updating chart with data:", df.tail())  # Debug print
+            
+            if df is None or df.empty:
+                print("No data to display")
+                return
+            
+            self.ax.clear()
+            
+            # Plot candlesticks
+            width = 0.6
+            width2 = width * 0.8
+            
+            up = df[df.close >= df.open]
+            down = df[df.close < df.open]
+            
+            # Plot up candles
+            if not up.empty:
+                self.ax.bar(up.index, up.close-up.open, width, bottom=up.open, color='green', alpha=0.8)
+                self.ax.bar(up.index, up.high-up.close, width2, bottom=up.close, color='green', alpha=0.8)
+                self.ax.bar(up.index, up.low-up.open, width2, bottom=up.open, color='green', alpha=0.8)
+            
+            # Plot down candles
+            if not down.empty:
+                self.ax.bar(down.index, down.close-down.open, width, bottom=down.open, color='red', alpha=0.8)
+                self.ax.bar(down.index, down.high-down.open, width2, bottom=down.open, color='red', alpha=0.8)
+                self.ax.bar(down.index, down.low-down.close, width2, bottom=down.close, color='red', alpha=0.8)
+            
+            # Add indicators if available
+            if 'SMA20' in df.columns:
+                self.ax.plot(df.index, df['SMA20'], color='blue', label='SMA20', alpha=0.7)
+            if 'SMA50' in df.columns:
+                self.ax.plot(df.index, df['SMA50'], color='yellow', label='SMA50', alpha=0.7)
+            
+            # Customize chart
+            self.ax.set_title(f"{self.pair_combo.currentText()} - {self.timeframe_combo.currentText()}")
+            self.ax.grid(True, alpha=0.2)
+            self.ax.legend()
+            
+            # Format dates on x-axis
+            self.ax.tick_params(axis='x', rotation=45)
+            
+            # Refresh canvas
+            self.figure.tight_layout()
+            self.canvas.draw()
+            
+        except Exception as e:
+            print(f"Error updating chart: {str(e)}")
+            import traceback
+            traceback.print_exc() 

@@ -658,8 +658,28 @@ class TradingBot:
     def __init__(self, credentials):
         self.credentials = credentials
         self.connected = False
+        self.running = False  # Add running state
         self.setup_exchange()
         
+    def start(self):
+        """Start the trading bot"""
+        try:
+            self.running = True
+            print("Trading bot started")
+        except Exception as e:
+            print(f"Error starting bot: {str(e)}")
+            self.running = False
+            raise
+            
+    def stop(self):
+        """Stop the trading bot"""
+        try:
+            self.running = False
+            print("Trading bot stopped")
+        except Exception as e:
+            print(f"Error stopping bot: {str(e)}")
+            raise
+
     def setup_exchange(self):
         """Setup exchange connection with error handling"""
         try:
@@ -699,6 +719,144 @@ class TradingBot:
             return True
         except:
             return False
+
+    def get_account_info(self):
+        """Get account information from exchange"""
+        try:
+            if self.credentials['exchange'] == 'oanda':
+                r = AccountSummary(accountID=self.credentials['account_id'])
+                response = self.exchange.request(r)
+                account = response.get('account', {})
+                
+                return {
+                    'balance': float(account.get('balance', 0)),
+                    'equity': float(account.get('NAV', 0)),
+                    'margin_rate': float(account.get('marginRate', 0)),
+                    'margin_available': float(account.get('marginAvailable', 0)),
+                    'unrealized_pl': float(account.get('unrealizedPL', 0)),
+                    'daily_pl': float(account.get('pl', 0)),
+                    'positions': len(account.get('positions', []))
+                }
+                
+            elif self.credentials['exchange'] == 'alpaca':
+                account = self.exchange.get_account()
+                return {
+                    'balance': float(account.cash),
+                    'equity': float(account.equity),
+                    'margin_rate': float(account.margin_multiplier),
+                    'margin_available': float(account.buying_power),
+                    'unrealized_pl': float(account.unrealized_pl),
+                    'daily_pl': float(account.equity) - float(account.last_equity),
+                    'positions': len(self.exchange.list_positions())
+                }
+                
+        except Exception as e:
+            print(f"Error getting account info: {str(e)}")
+            return {
+                'balance': 0,
+                'equity': 0,
+                'margin_rate': 0,
+                'margin_available': 0,
+                'unrealized_pl': 0,
+                'daily_pl': 0,
+                'positions': 0
+            }
+
+    def get_market_data(self):
+        """Get current market data"""
+        try:
+            if self.credentials['exchange'] == 'oanda':
+                # Get data for forex pairs
+                market_data = []
+                for pair in ['EUR_USD', 'GBP_USD', 'USD_JPY']:
+                    params = {
+                        "count": 2,
+                        "granularity": "M1"  # 1-minute candles
+                    }
+                    r = instruments.InstrumentsCandles(instrument=pair, params=params)
+                    response = self.exchange.request(r)
+                    
+                    if 'candles' in response and len(response['candles']) > 0:
+                        current = float(response['candles'][-1]['mid']['c'])
+                        previous = float(response['candles'][-2]['mid']['c'])
+                        change = ((current - previous) / previous) * 100
+                        
+                        market_data.append({
+                            'symbol': pair,
+                            'price': current,
+                            'change': change,
+                            'volume': float(response['candles'][-1]['volume'])
+                        })
+                
+                return market_data
+                
+            elif self.credentials['exchange'] == 'alpaca':
+                # Get data for stocks
+                symbols = ['AAPL', 'GOOGL', 'MSFT']
+                market_data = []
+                
+                for symbol in symbols:
+                    bars = self.exchange.get_barset(symbol, 'minute', limit=2)[symbol]
+                    if len(bars) > 0:
+                        current = bars[-1].c
+                        previous = bars[-2].c
+                        change = ((current - previous) / previous) * 100
+                        
+                        market_data.append({
+                            'symbol': symbol,
+                            'price': current,
+                            'change': change,
+                            'volume': bars[-1].v
+                        })
+                        
+                return market_data
+                
+        except Exception as e:
+            print(f"Error getting market data: {str(e)}")
+            return []
+
+    def get_current_data(self, pair):
+        """Get current market data for a specific pair"""
+        try:
+            if self.credentials['exchange'] == 'oanda':
+                params = {
+                    "count": 100,  # Get last 100 candles
+                    "granularity": "M1"  # 1-minute candles
+                }
+                r = instruments.InstrumentsCandles(instrument=pair, params=params)
+                response = self.exchange.request(r)
+                
+                if 'candles' in response:
+                    # Convert to DataFrame
+                    data = []
+                    for candle in response['candles']:
+                        data.append({
+                            'time': pd.to_datetime(candle['time']),
+                            'open': float(candle['mid']['o']),
+                            'high': float(candle['mid']['h']),
+                            'low': float(candle['mid']['l']),
+                            'close': float(candle['mid']['c']),
+                            'volume': float(candle['volume'])
+                        })
+                    return pd.DataFrame(data).set_index('time')
+                    
+            elif self.credentials['exchange'] == 'alpaca':
+                bars = self.exchange.get_barset(pair, 'minute', limit=100)[pair]
+                data = []
+                for bar in bars:
+                    data.append({
+                        'time': bar.t,
+                        'open': bar.o,
+                        'high': bar.h,
+                        'low': bar.l,
+                        'close': bar.c,
+                        'volume': bar.v
+                    })
+                return pd.DataFrame(data).set_index('time')
+                
+        except Exception as e:
+            print(f"Error getting current data: {str(e)}")
+            return None
 
 if __name__ == "__main__":
     main()

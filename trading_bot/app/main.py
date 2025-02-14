@@ -24,6 +24,26 @@ from PyQt5.QtCore import QProcess
 from oandapyV20.endpoints.accounts import AccountSummary
 from trading_dialog import InstrumentDialog
 from strategy_dialog import StrategyDialog
+from PyQt5.QtCore import QSize, QRect
+from PyQt5.QtWidgets import QDesktopWidget
+
+class DeviceDetector:
+    @staticmethod
+    def is_mobile():
+        """Detect if running on mobile device"""
+        screen = QDesktopWidget().screenGeometry()
+        width = screen.width()
+        height = screen.height()
+        
+        # Check screen dimensions and aspect ratio
+        is_mobile = (width < 800 or height < 600) or (height > width)
+        return is_mobile
+        
+    @staticmethod
+    def get_screen_size():
+        """Get current screen dimensions"""
+        screen = QDesktopWidget().screenGeometry()
+        return QSize(screen.width(), screen.height())
 
 class TradingBotApp(QMainWindow):
     def __init__(self):
@@ -31,6 +51,14 @@ class TradingBotApp(QMainWindow):
         self.bot = None
         self.main_layout = None
         self.connection_status = False
+        self.is_mobile = DeviceDetector.is_mobile()
+        self.screen_size = DeviceDetector.get_screen_size()
+        
+        # Adjust window size based on device
+        if self.is_mobile:
+            self.setWindowState(Qt.WindowMaximized)
+        else:
+            self.resize(1200, 800)
         
         # Show loading screen
         self.show_loading("Initializing Trading Bot...")
@@ -51,7 +79,6 @@ class TradingBotApp(QMainWindow):
         try:
             self.setWindowTitle("Trading Bot Dashboard")
             self.setStyleSheet(MAIN_WINDOW_STYLE)
-            self.resize(1200, 800)
             
             # Create central widget and set main layout
             central_widget = QWidget()
@@ -100,8 +127,15 @@ class TradingBotApp(QMainWindow):
             
     def stop_bot(self):
         """Stop the trading bot"""
-        if self.bot:
-            self.bot.stop()
+        try:
+            if self.bot:
+                self.bot.stop()
+                self.main_layout.update_status("Stopped", COLORS['warning'])
+                # Disable stop button and enable start button
+                self.main_layout.get_stop_button().setEnabled(False)
+                self.main_layout.get_start_button().setEnabled(True)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error stopping bot: {str(e)}")
     
     def setup_forex_updates(self):
         """Setup real-time forex updates"""
@@ -113,21 +147,28 @@ class TradingBotApp(QMainWindow):
     def update_forex_data(self):
         """Update forex prices and calculations"""
         try:
-            if hasattr(self, 'bot') and self.bot:
+            if hasattr(self, 'bot') and self.bot and hasattr(self, 'main_layout'):
                 # Get current pair
-                pair = self.main_layout.pair_combo.currentText()
+                current_pair = self.main_layout.pair_combo.currentText()
                 
-                # Get current prices
-                current_data = self.bot.get_current_data(pair)
+                # Get current data
+                current_data = self.bot.get_current_data(current_pair)
                 if current_data is not None:
-                    # Update position table
-                    self.update_positions_table(current_data)
-                    
                     # Update chart
                     self.main_layout.update_chart(current_data)
                     
                     # Update account info
-                    self.update_account_info()
+                    account_info = self.bot.get_account_info()
+                    if account_info:
+                        self.main_layout.update_account_info(
+                            balance=account_info['balance'],
+                            account_type=self.credentials['exchange'].upper(),
+                            status="Connected",
+                            free_margin=account_info['margin_available'],
+                            open_pl=account_info['unrealized_pl'],
+                            daily_pl=account_info['daily_pl'],
+                            positions=account_info['positions']
+                        )
         except Exception as e:
             print(f"Error updating forex data: {str(e)}")
     
@@ -258,23 +299,31 @@ class TradingBotApp(QMainWindow):
                 r = AccountSummary(accountID=self.credentials['account_id'])
                 response = self.bot.exchange.request(r)
                 # Get account details for display
-                account_name = response.get('account', {}).get('alias', 'Account')
-                balance = response.get('account', {}).get('balance', '0')
+                account = response.get('account', {})
+                
                 self.connection_status = True
                 self.main_layout.update_status("Connected", COLORS['success'])
                 self.main_layout.update_account_info(
-                    float(balance),
-                    self.credentials['exchange'].upper(),
-                    "Connected"
+                    balance=float(account.get('balance', 0)),
+                    account_type=self.credentials['exchange'].upper(),
+                    status="Connected",
+                    free_margin=float(account.get('marginAvailable', 0)),
+                    open_pl=float(account.get('unrealizedPL', 0)),
+                    daily_pl=float(account.get('pl', 0)),
+                    positions=len(account.get('positions', []))
                 )
             else:
                 account = self.bot.exchange.get_account()
                 self.connection_status = True
                 self.main_layout.update_status("Connected", COLORS['success'])
                 self.main_layout.update_account_info(
-                    float(account.cash),
-                    self.credentials['exchange'].upper(),
-                    "Connected"
+                    balance=float(account.cash),
+                    account_type=self.credentials['exchange'].upper(),
+                    status="Connected",
+                    free_margin=float(account.buying_power),
+                    open_pl=float(account.unrealized_pl),
+                    daily_pl=float(account.equity) - float(account.last_equity),
+                    positions=len(self.bot.exchange.list_positions())
                 )
                 
             return True

@@ -20,7 +20,12 @@ FONTS = {
     'subheader': QFont('Roboto', 14, QFont.Medium),
     'body': QFont('Roboto', 12),
     'small': QFont('Roboto', 10),
-    'mono': QFont('Roboto Mono', 12)  # For numbers and code
+    'mono': QFont('Roboto Mono', 12),  # For numbers and code
+    'header_mobile': QFont('Roboto', 20, QFont.Bold),
+    'subheader_mobile': QFont('Roboto', 18, QFont.Medium),
+    'body_mobile': QFont('Roboto', 16),
+    'small_mobile': QFont('Roboto', 14),
+    'mono_mobile': QFont('Roboto Mono', 16)
 }
 
 # Style sheets
@@ -52,6 +57,21 @@ BUTTON_STYLE = f"""
     }}
 """
 
+BUTTON_STYLE_MOBILE = f"""
+    QPushButton {{
+        background-color: {COLORS['primary']};
+        color: {COLORS['text']};
+        border: none;
+        padding: 15px 30px;
+        border-radius: 15px;
+        font-size: 16px;
+        min-height: 50px;
+    }}
+    QPushButton:hover {{
+        background-color: {COLORS['secondary']};
+    }}
+"""
+
 INPUT_STYLE = f"""
     QLineEdit, QComboBox {{
         background-color: {COLORS['surface']};
@@ -69,6 +89,18 @@ INPUT_STYLE = f"""
     QComboBox::down-arrow {{
         image: none;
         border-width: 0px;
+    }}
+"""
+
+INPUT_STYLE_MOBILE = f"""
+    QLineEdit, QComboBox {{
+        background-color: {COLORS['surface']};
+        color: {COLORS['text']};
+        border: 2px solid #404040;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 16px;
+        min-height: 45px;
     }}
 """
 

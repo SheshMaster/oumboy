@@ -2,51 +2,58 @@ import os
 import shutil
 
 def create_directory_structure():
-    # Project root directory
-    root_dir = "trading_bot"
+    # Project root directory (one level up from trading_bot)
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    app_dir = os.path.join(root_dir, "app")
     
-    # Directory structure
+    # Create main directories
     directories = [
-        "app",
-        "app/config",
-        "app/core",
-        "app/ui",
-        "app/ui/dialogs",
-        "app/utils",
-        "app/services",
-        "tests",
-        "docs"
+        os.path.join(app_dir),
+        os.path.join(app_dir, "config"),
+        os.path.join(app_dir, "core"),
+        os.path.join(app_dir, "ui"),
+        os.path.join(app_dir, "ui", "dialogs"),
+        os.path.join(app_dir, "utils"),
+        os.path.join(app_dir, "services"),
+        os.path.join(root_dir, "tests"),
+        os.path.join(root_dir, "docs")
     ]
     
-    # Create directories
+    # Create directories and __init__.py files
     for dir_path in directories:
-        full_path = os.path.join(root_dir, dir_path)
-        os.makedirs(full_path, exist_ok=True)
-        
-        # Create __init__.py in each Python package directory
-        if "app" in dir_path:
-            init_file = os.path.join(full_path, "__init__.py")
-            open(init_file, "a").close()
+        os.makedirs(dir_path, exist_ok=True)
+        init_file = os.path.join(dir_path, "__init__.py")
+        if not os.path.exists(init_file):
+            with open(init_file, "w") as f:
+                if dir_path == app_dir:
+                    f.write("# Main app package\n")
+                elif dir_path == os.path.join(app_dir, "ui"):
+                    f.write("from .layouts import MainLayout\nfrom .styles import COLORS, FONTS, BUTTON_STYLE\n")
+                elif dir_path == os.path.join(app_dir, "ui", "dialogs"):
+                    f.write("from .login_dialog import LoginDialog\nfrom .trading_dialog import InstrumentDialog\nfrom .strategy_dialog import StrategyDialog\n")
 
-    # Move existing files to their new locations
-    file_moves = {
-        "main.py": "app/main.py",
-        "bot2.py": "app/core/bot.py",
-        "layouts.py": "app/ui/layouts.py",
-        "styles.py": "app/ui/styles.py",
-        "login_dialog.py": "app/ui/dialogs/login_dialog.py",
-        "trading_dialog.py": "app/ui/dialogs/trading_dialog.py",
-        "strategy_dialog.py": "app/ui/dialogs/strategy_dialog.py",
-        "forex_utils.py": "app/utils/forex_utils.py",
-        "config.py": "app/config/config.py",
-        "credentials.json": "app/config/credentials.json",
-        "market_analysis.py": "app/core/market_analysis.py",
-        "performance_analytics.py": "app/core/performance_analytics.py"
+    # File moves with explicit paths
+    files_to_move = {
+        "main.py": os.path.join(app_dir, "main.py"),
+        "bot2.py": os.path.join(app_dir, "core", "bot.py"),
+        "layouts.py": os.path.join(app_dir, "ui", "layouts.py"),
+        "styles.py": os.path.join(app_dir, "ui", "styles.py"),
+        "login_dialog.py": os.path.join(app_dir, "ui", "dialogs", "login_dialog.py"),
+        "trading_dialog.py": os.path.join(app_dir, "ui", "dialogs", "trading_dialog.py"),
+        "strategy_dialog.py": os.path.join(app_dir, "ui", "dialogs", "strategy_dialog.py"),
+        "forex_utils.py": os.path.join(app_dir, "utils", "forex_utils.py"),
+        "config.py": os.path.join(app_dir, "config", "config.py"),
+        "credentials.json": os.path.join(app_dir, "config", "credentials.json"),
     }
-    
-    for src, dst in file_moves.items():
-        if os.path.exists(src):
-            shutil.move(src, os.path.join(root_dir, dst))
+
+    # Copy files to new locations
+    for src_name, dst_path in files_to_move.items():
+        src_path = os.path.join(root_dir, src_name)
+        if os.path.exists(src_path):
+            print(f"Copying {src_path} to {dst_path}")
+            shutil.copy2(src_path, dst_path)
+        else:
+            print(f"Warning: Source file not found: {src_path}")
 
     # Create run.py in root directory
     with open(os.path.join(root_dir, "run.py"), "w") as f:

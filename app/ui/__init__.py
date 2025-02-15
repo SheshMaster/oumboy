@@ -1,2 +1,2 @@
 from .layouts import MainLayout
-from .styles import COLORS, FONTS, BUTTON_STYLE 
+from .theme import COLORS, FONTS, BUTTON_STYLE, INPUT_STYLE, TABLE_STYLE, LABEL_STYLE, GROUP_BOX_STYLE, MAIN_WINDOW_STYLE

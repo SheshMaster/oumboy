@@ -1,2 +1,6 @@
-from .forex_utils import ForexCalculator
-from .device_detector import DeviceDetector 
+from .device_detector import DeviceDetector
+# We'll add forex_utils import after creating the file
+try:
+    from .forex_utils import ForexCalculator
+except ImportError:
+    pass 
